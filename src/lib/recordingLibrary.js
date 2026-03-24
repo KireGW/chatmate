@@ -2,6 +2,7 @@ const DATABASE_NAME = 'chatmate'
 const DATABASE_VERSION = 1
 const STORE_NAME = 'app-state'
 const LIBRARY_RECORD_KEY = 'recording-library'
+const DEFAULT_WAVEFORM = [10, 16, 12, 18, 14, 20, 14, 11, 17, 13, 19, 12, 16, 10, 14, 11]
 
 function openDatabase() {
   return new Promise((resolve, reject) => {
@@ -48,10 +49,54 @@ function writeStoreValue(database, key, value) {
   })
 }
 
-function createClientRecording(item) {
+function normalizeRecording(item) {
+  const snapshot = item?.snapshot ?? {}
+  const dimensions = Array.isArray(item?.dimensions) ? item.dimensions : []
+  const moments = Array.isArray(item?.moments) ? item.moments : []
+  const stats = Array.isArray(item?.stats)
+    ? item.stats
+    : Array.isArray(snapshot?.stats)
+      ? snapshot.stats
+      : []
+
   return {
-    ...item,
-    audioUrl: item.audioBlob instanceof Blob ? URL.createObjectURL(item.audioBlob) : '',
+    id: item?.id || crypto.randomUUID(),
+    createdAt: item?.createdAt || new Date().toISOString(),
+    title: item?.title || 'Untitled recording',
+    transcript: typeof item?.transcript === 'string' ? item.transcript : '',
+    audioBlob: item?.audioBlob instanceof Blob ? item.audioBlob : null,
+    snapshot: {
+      title: snapshot?.title || item?.title || 'Untitled recording',
+      transcript:
+        typeof snapshot?.transcript === 'string'
+          ? snapshot.transcript
+          : typeof item?.transcript === 'string'
+            ? item.transcript
+            : '',
+      insight:
+        snapshot?.insight ||
+        'This recording is saved locally. Press Analyze to process it and generate feedback.',
+      waveform: Array.isArray(snapshot?.waveform) && snapshot.waveform.length
+        ? snapshot.waveform
+        : DEFAULT_WAVEFORM,
+      stats,
+    },
+    dimensions,
+    moments,
+    stats,
+    status: item?.status || (moments.length ? 'analyzed' : 'saved'),
+  }
+}
+
+function createClientRecording(item) {
+  const normalized = normalizeRecording(item)
+
+  return {
+    ...normalized,
+    audioUrl:
+      normalized.audioBlob instanceof Blob
+        ? URL.createObjectURL(normalized.audioBlob)
+        : '',
   }
 }
 

@@ -30,15 +30,19 @@ export function useSpeechCoach() {
 
   useEffect(() => {
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.onresult = null
-        recognitionRef.current.onerror = null
-        recognitionRef.current.onend = null
-        recognitionRef.current.stop()
+      const recognition = recognitionRef.current
+
+      if (recognition) {
+        recognition.onresult = null
+        recognition.onerror = null
+        recognition.onend = null
+        recognition.stop()
       }
 
-      if (mediaRecorderRef.current?.state !== 'inactive') {
-        mediaRecorderRef.current.stop()
+      const recorder = mediaRecorderRef.current
+
+      if (recorder && recorder.state !== 'inactive') {
+        recorder.stop()
       }
 
       streamRef.current?.getTracks().forEach((track) => track.stop())
