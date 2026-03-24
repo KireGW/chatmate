@@ -21,6 +21,7 @@ export function useSpeechCoach() {
   const [isRecognitionSupported] = useState(() =>
     Boolean(getRecognitionConstructor()),
   )
+  const [isFinalizingCapture, setIsFinalizingCapture] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
   const [transcript, setTranscript] = useState('')
 
@@ -62,6 +63,7 @@ export function useSpeechCoach() {
     setTranscript('')
     setInterimTranscript('')
     setAudioBlob(null)
+    setIsFinalizingCapture(false)
     transcriptRef.current = ''
 
     if (audioUrl) {
@@ -85,6 +87,7 @@ export function useSpeechCoach() {
 
       recorder.onstop = () => {
         if (!chunksRef.current.length) {
+          setIsFinalizingCapture(false)
           return
         }
 
@@ -94,6 +97,7 @@ export function useSpeechCoach() {
         const nextUrl = URL.createObjectURL(audioBlob)
         setAudioBlob(audioBlob)
         setAudioUrl(nextUrl)
+        setIsFinalizingCapture(false)
         streamRef.current?.getTracks().forEach((track) => track.stop())
       }
 
@@ -161,6 +165,10 @@ export function useSpeechCoach() {
   }
 
   function stopSession() {
+    if (mediaRecorderRef.current?.state === 'recording') {
+      setIsFinalizingCapture(true)
+    }
+
     if (recognitionRef.current) {
       recognitionRef.current.stop()
       recognitionRef.current = null
@@ -181,6 +189,7 @@ export function useSpeechCoach() {
     audioUrl,
     error,
     interimTranscript,
+    isFinalizingCapture,
     isRecognitionSupported,
     isRecording,
     startSession,

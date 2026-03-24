@@ -4,6 +4,7 @@ export function HeroPanel({
   audioUrl,
   hasSelectedRecording,
   isAnalyzing,
+  isFinalizingCapture,
   isRecording,
   onAnalyze,
   onStartSession,
@@ -29,7 +30,7 @@ export function HeroPanel({
             type="button"
             className="primary-action"
             onClick={isRecording ? onStopSession : onStartSession}
-            disabled={isAnalyzing}
+            disabled={isAnalyzing || isFinalizingCapture}
           >
             {isRecording ? 'Stop recording' : 'Start recording'}
           </button>
@@ -38,18 +39,37 @@ export function HeroPanel({
             type="button"
             className="secondary-action"
             onClick={onAnalyze}
-            disabled={isRecording || isAnalyzing || !hasSelectedRecording}
+            disabled={
+              isRecording || isAnalyzing || isFinalizingCapture || !hasSelectedRecording
+            }
           >
-            {isAnalyzing ? 'Analyzing...' : 'Analyze'}
+            {isFinalizingCapture ? 'Saving recording...' : isAnalyzing ? 'Analyzing...' : 'Analyze'}
           </button>
         </div>
+
+        {isFinalizingCapture ? (
+          <div className="analysis-progress" role="status" aria-live="polite">
+            <div className="analysis-progress__header">
+              <span className="analysis-progress__dot" />
+              <div>
+                <p className="chip-label">Preparing recording</p>
+                <p className="analysis-progress__time">
+                  Finalizing the audio file before analysis becomes available.
+                </p>
+              </div>
+            </div>
+            <div className="analysis-progress__bar" aria-hidden="true">
+              <span className="analysis-progress__bar-fill" style={{ width: '28%' }} />
+            </div>
+          </div>
+        ) : null}
 
         {isAnalyzing ? (
           <div className="analysis-progress" role="status" aria-live="polite">
             <div className="analysis-progress__header">
               <span className="analysis-progress__dot" />
               <div>
-                <p className="chip-label">Analysis in progress</p>
+                <p className="chip-label">Estimated progress</p>
                 <p className="analysis-progress__time">
                   {analysisElapsedSeconds > 0
                     ? `${analysisElapsedSeconds}s elapsed`
@@ -90,6 +110,8 @@ export function HeroPanel({
           <p>
             {isRecording
               ? 'Recording in progress.'
+              : isFinalizingCapture
+                ? 'Saving the recording.'
               : hasSelectedRecording
                 ? 'Recording ready to analyze.'
                 : 'No recording yet.'}

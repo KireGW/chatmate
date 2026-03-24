@@ -130,6 +130,7 @@ function App() {
     audioBlob,
     audioUrl,
     error: speechError,
+    isFinalizingCapture,
     isRecording,
     startSession,
     stopSession,
@@ -247,6 +248,9 @@ function App() {
   const statusMessage =
     speechError ||
     analysisState.error ||
+    (isFinalizingCapture
+      ? 'Finishing the recording and saving it on this device. Analyze will unlock in a moment.'
+      : '') ||
     (selectedRecording?.status === 'saved'
       ? 'This recording is saved locally. Press Analyze to process it and generate feedback.'
       : '')
@@ -467,6 +471,7 @@ function App() {
         audioUrl={audioUrl}
         hasSelectedRecording={Boolean(selectedRecording)}
         isAnalyzing={analysisState.isLoading}
+        isFinalizingCapture={isFinalizingCapture}
         isRecording={isRecording}
         onAnalyze={analyzeSelectedRecording}
         onStartSession={startSession}
