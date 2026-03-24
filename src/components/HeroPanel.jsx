@@ -115,12 +115,23 @@ export function HeroPanel({
         ) : null}
 
         <dl className="session-stats">
-          {sessionSnapshot.stats.map((stat) => (
-            <div key={stat.label}>
-              <dt>{stat.label}</dt>
-              <dd>{stat.value}</dd>
+          {sessionSnapshot.stats.length ? (
+            sessionSnapshot.stats.map((stat) => (
+              <div key={stat.label}>
+                <dt>{stat.label}</dt>
+                <dd>{stat.value}</dd>
+              </div>
+            ))
+          ) : (
+            <div className="session-stats__empty">
+              <dt>Library</dt>
+              <dd>
+                {audioUrl
+                  ? 'This recording is ready to be analyzed.'
+                  : 'Open a saved recording or make a new one to see stats.'}
+              </dd>
             </div>
-          ))}
+          )}
         </dl>
       </aside>
     </section>

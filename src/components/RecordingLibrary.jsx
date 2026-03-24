@@ -6,6 +6,7 @@ function formatDate(value) {
 }
 
 export function RecordingLibrary({
+  isLoading,
   items,
   onDeleteRecording,
   onOpenRecording,
@@ -13,7 +14,12 @@ export function RecordingLibrary({
 }) {
   return (
     <div className="library-shell">
-      {items.length ? (
+      {isLoading ? (
+        <article className="analysis-card" role="status">
+          <p className="chip-label">Bibliotek</p>
+          <p>Loading your saved recordings...</p>
+        </article>
+      ) : items.length ? (
         <div className="library-list">
           {items.map((item) => {
             const isActive = item.id === selectedRecordingId
@@ -61,8 +67,8 @@ export function RecordingLibrary({
                   </dl>
                 </button>
 
-                {item.audioDataUrl ? (
-                  <audio controls src={item.audioDataUrl} className="audio-player">
+                {item.audioUrl ? (
+                  <audio controls src={item.audioUrl} className="audio-player">
                     Your browser does not support audio playback.
                   </audio>
                 ) : null}
@@ -74,8 +80,8 @@ export function RecordingLibrary({
         <article className="analysis-card" role="status">
           <p className="chip-label">Bibliotek</p>
           <p>
-            Dina tidigare inspelningar kommer att dyka upp här med automatiska
-            titlar baserade på vad du pratade om.
+            Inga sparade inspelningar hittades i den här webbläsaren ännu. När
+            du spelar in något sparas det här med en automatisk titel.
           </p>
         </article>
       )}

@@ -8,17 +8,22 @@ import { ImprovementRoadmap } from './components/ImprovementRoadmap.jsx'
 import { RecordingLibrary } from './components/RecordingLibrary.jsx'
 import { useSpeechCoach } from './hooks/useSpeechCoach.js'
 import {
-  blobToDataUrl,
+  createLibraryRecordingAudioUrl,
   loadRecordingLibrary,
+  revokeRecordingLibraryUrls,
   saveRecordingLibrary,
 } from './lib/recordingLibrary.js'
 import { analyzeTranscript } from './services/coachApi.js'
-import {
-  coachingDimensions as initialDimensions,
-  coachingMoments as initialMoments,
-  roadmapSteps,
-  sessionSnapshot as initialSnapshot,
-} from './data/spanishCoach.js'
+import { roadmapSteps } from './data/spanishCoach.js'
+
+const emptySnapshot = {
+  title: 'No recording selected',
+  transcript: '',
+  insight:
+    'Start a new recording or open one from your library to see transcript feedback here.',
+  waveform: [10, 16, 12, 18, 14, 20, 14, 11, 17, 13, 19, 12, 16, 10, 14, 11],
+  stats: [],
+}
 
 function App() {
   const {
@@ -35,16 +40,65 @@ function App() {
   const [analysisState, setAnalysisState] = useState({
     isLoading: false,
     error: '',
-    snapshot: initialSnapshot,
-    dimensions: initialDimensions,
-    moments: initialMoments,
+    snapshot: emptySnapshot,
+    dimensions: [],
+    moments: [],
   })
-  const [activeMomentId, setActiveMomentId] = useState(initialMoments[0].id)
-  const [recordingLibrary, setRecordingLibrary] = useState(() =>
-    loadRecordingLibrary(),
-  )
+  const [activeMomentId, setActiveMomentId] = useState('')
+  const [isLibraryLoading, setIsLibraryLoading] = useState(true)
+  const [recordingLibrary, setRecordingLibrary] = useState([])
   const [selectedRecordingId, setSelectedRecordingId] = useState('')
   const analyzedSessionKeyRef = useRef('')
+  const recordingLibraryRef = useRef([])
+
+  useEffect(() => {
+    recordingLibraryRef.current = recordingLibrary
+  }, [recordingLibrary])
+
+  useEffect(() => {
+    let ignore = false
+
+    async function initializeLibrary() {
+      try {
+        const items = await loadRecordingLibrary()
+
+        if (ignore) {
+          revokeRecordingLibraryUrls(items)
+          return
+        }
+
+        setRecordingLibrary(items)
+      } finally {
+        if (!ignore) {
+          setIsLibraryLoading(false)
+        }
+      }
+    }
+
+    initializeLibrary()
+
+    return () => {
+      ignore = true
+      revokeRecordingLibraryUrls(recordingLibraryRef.current)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!recordingLibrary.length || selectedRecordingId) {
+      return
+    }
+
+    const latestRecording = recordingLibrary[0]
+    setSelectedRecordingId(latestRecording.id)
+    setAnalysisState({
+      isLoading: false,
+      error: '',
+      snapshot: latestRecording.snapshot,
+      dimensions: latestRecording.dimensions,
+      moments: latestRecording.moments,
+    })
+    setActiveMomentId(latestRecording.moments[0]?.id ?? '')
+  }, [recordingLibrary, selectedRecordingId])
 
   useEffect(() => {
     const finalTranscript = transcript.trim()
@@ -67,7 +121,6 @@ function App() {
 
       try {
         const analysis = await analyzeTranscript(finalTranscript)
-        const audioDataUrl = await blobToDataUrl(audioBlob)
 
         if (ignore) {
           return
@@ -81,20 +134,28 @@ function App() {
           moments: analysis.coachingMoments,
         })
         setActiveMomentId(analysis.coachingMoments[0]?.id ?? '')
+        const nextItem = {
+          id: crypto.randomUUID(),
+          createdAt: new Date().toISOString(),
+          title: analysis.sessionSnapshot.title,
+          transcript: finalTranscript,
+          audioBlob,
+          audioUrl: createLibraryRecordingAudioUrl(audioBlob),
+          snapshot: analysis.sessionSnapshot,
+          dimensions: analysis.coachingDimensions,
+          moments: analysis.coachingMoments,
+          stats: analysis.sessionSnapshot.stats,
+        }
         setRecordingLibrary((current) => {
-          const nextItem = {
-            id: crypto.randomUUID(),
-            createdAt: new Date().toISOString(),
-            title: analysis.sessionSnapshot.title,
-            transcript: finalTranscript,
-            audioDataUrl,
-            snapshot: analysis.sessionSnapshot,
-            dimensions: analysis.coachingDimensions,
-            moments: analysis.coachingMoments,
-            stats: analysis.sessionSnapshot.stats,
-          }
           const nextLibrary = [nextItem, ...current].slice(0, 20)
-          saveRecordingLibrary(nextLibrary)
+          const removedItems = [nextItem, ...current].slice(20)
+
+          removedItems.forEach((item) => {
+            if (item.audioUrl?.startsWith('blob:')) {
+              URL.revokeObjectURL(item.audioUrl)
+            }
+          })
+
           setSelectedRecordingId(nextItem.id)
           return nextLibrary
         })
@@ -121,6 +182,12 @@ function App() {
       ignore = true
     }
   }, [audioBlob, transcript])
+
+  useEffect(() => {
+    if (!isLibraryLoading) {
+      saveRecordingLibrary(recordingLibrary)
+    }
+  }, [isLibraryLoading, recordingLibrary])
 
   const activeMoment = useMemo(() => {
     return (
@@ -153,8 +220,12 @@ function App() {
 
   function deleteRecording(recordingId) {
     setRecordingLibrary((current) => {
+      const removedItem = current.find((item) => item.id === recordingId)
       const nextLibrary = current.filter((item) => item.id !== recordingId)
-      saveRecordingLibrary(nextLibrary)
+
+      if (removedItem?.audioUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(removedItem.audioUrl)
+      }
 
       if (selectedRecordingId === recordingId) {
         const fallback = nextLibrary[0]
@@ -201,9 +272,19 @@ function App() {
         />
 
         <div className="dimension-grid">
-          {analysisState.dimensions.map((dimension) => (
-            <FeedbackDimensionCard key={dimension.title} dimension={dimension} />
-          ))}
+          {analysisState.dimensions.length ? (
+            analysisState.dimensions.map((dimension) => (
+              <FeedbackDimensionCard key={dimension.title} dimension={dimension} />
+            ))
+          ) : (
+            <article className="analysis-card" role="status">
+              <p className="chip-label">No feedback yet</p>
+              <p>
+                When you record a session, grammar, flow, idiomacy, and
+                vocabulary feedback will appear here.
+              </p>
+            </article>
+          )}
         </div>
       </section>
 
@@ -251,6 +332,7 @@ function App() {
         />
 
         <RecordingLibrary
+          isLoading={isLibraryLoading}
           items={recordingLibrary}
           onDeleteRecording={deleteRecording}
           onOpenRecording={openRecording}

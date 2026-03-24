@@ -235,6 +235,10 @@
   background: rgba(255, 255, 255, 0.74);
 }
 
+.session-stats__empty {
+  grid-column: 1 / -1;
+}
+
 .session-stats dt {
   margin-bottom: 0.35rem;
   font-size: 0.88rem;
@@ -270,6 +274,10 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1rem;
+}
+
+.dimension-grid > .analysis-card {
+  grid-column: 1 / -1;
 }
 
 .dimension-card {
