@@ -8,6 +8,22 @@ function getRecognitionConstructor() {
   return window.SpeechRecognition || window.webkitSpeechRecognition || null
 }
 
+function getMicrophoneSupportError() {
+  if (typeof navigator === 'undefined') {
+    return 'Microphone capture is not available in this environment.'
+  }
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    if (typeof window !== 'undefined' && !window.isSecureContext) {
+      return 'Microphone access on mobile browsers usually requires a secure HTTPS page. Open Chatmate through HTTPS or a secure tunnel and try again.'
+    }
+
+    return 'This browser does not expose microphone capture for this page.'
+  }
+
+  return ''
+}
+
 export function useSpeechCoach() {
   const mediaRecorderRef = useRef(null)
   const recognitionRef = useRef(null)
@@ -69,6 +85,13 @@ export function useSpeechCoach() {
     if (audioUrl) {
       URL.revokeObjectURL(audioUrl)
       setAudioUrl('')
+    }
+
+    const microphoneSupportError = getMicrophoneSupportError()
+
+    if (microphoneSupportError) {
+      setError(microphoneSupportError)
+      return
     }
 
     try {
