@@ -48,7 +48,115 @@ async function transcribeAudioFile(audioPath, language) {
     maxBuffer: 10 * 1024 * 1024,
   })
   const parsed = JSON.parse(stdout)
-  return parsed.text?.trim() || ''
+  return {
+    text: parsed.text?.trim() || '',
+    segments: Array.isArray(parsed.segments) ? parsed.segments : [],
+  }
+}
+
+function formatMs(value) {
+  return `${Math.round(value)} ms`
+}
+
+function countWords(text) {
+  return text
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length
+}
+
+function buildDeliveryProfile(transcript, segments) {
+  if (!segments.length) {
+    return {
+      speakingRateWpm: null,
+      averagePauseMs: null,
+      longestPauseMs: null,
+      longPauseCount: 0,
+      segmentCount: 0,
+      coverageSeconds: null,
+      notes: [
+        'Timing data was limited, so delivery analysis should stay cautious and focus on broad pacing rather than precise pause behavior.',
+      ],
+    }
+  }
+
+  const orderedSegments = segments
+    .filter((segment) => Number.isFinite(segment.start) && Number.isFinite(segment.end))
+    .sort((left, right) => left.start - right.start)
+
+  const firstStart = orderedSegments[0]?.start ?? 0
+  const lastEnd = orderedSegments.at(-1)?.end ?? 0
+  const coverageSeconds = Math.max(lastEnd - firstStart, 0)
+  const wordCount = countWords(transcript)
+  const speakingRateWpm =
+    coverageSeconds > 0 ? Math.round((wordCount / coverageSeconds) * 60) : null
+
+  const pauses = []
+
+  for (let index = 1; index < orderedSegments.length; index += 1) {
+    const pauseSeconds = orderedSegments[index].start - orderedSegments[index - 1].end
+
+    if (pauseSeconds > 0.08) {
+      pauses.push(pauseSeconds)
+    }
+  }
+
+  const averagePauseMs = pauses.length
+    ? (pauses.reduce((total, value) => total + value, 0) / pauses.length) * 1000
+    : 0
+  const longestPauseMs = pauses.length ? Math.max(...pauses) * 1000 : 0
+  const longPauseCount = pauses.filter((pause) => pause >= 1.2).length
+  const densePauseCount = pauses.filter((pause) => pause >= 0.55).length
+  const longestStretchSeconds = orderedSegments.reduce(
+    (longest, segment) => Math.max(longest, segment.end - segment.start),
+    0,
+  )
+
+  const notes = []
+
+  if (speakingRateWpm !== null) {
+    if (speakingRateWpm < 85) {
+      notes.push(
+        `Speaking rate is on the slower side at about ${speakingRateWpm} words per minute, which may reflect careful monitoring or frequent planning pauses.`,
+      )
+    } else if (speakingRateWpm > 165) {
+      notes.push(
+        `Speaking rate is relatively fast at about ${speakingRateWpm} words per minute, so delivery feedback should check whether ideas are landing cleanly or getting compressed.`,
+      )
+    } else {
+      notes.push(
+        `Speaking rate is roughly ${speakingRateWpm} words per minute, which sits in a workable conversational range if the ideas are still landing clearly.`,
+      )
+    }
+  }
+
+  if (longPauseCount > 0) {
+    notes.push(
+      `${longPauseCount} longer pause${longPauseCount === 1 ? '' : 's'} crossed about 1.2 seconds, which may be relevant if they interrupted listener tracking.`,
+    )
+  } else if (densePauseCount > 0) {
+    notes.push(
+      `${densePauseCount} medium pause${densePauseCount === 1 ? '' : 's'} appeared in the turn, so the model should assess whether the pacing still felt coherent overall.`,
+    )
+  } else {
+    notes.push('Pauses were generally short, so delivery feedback should not overstate hesitation unless chunking still felt overloaded.')
+  }
+
+  if (longestStretchSeconds >= 8) {
+    notes.push(
+      `The longest uninterrupted stretch lasted about ${longestStretchSeconds.toFixed(1)} seconds, which may signal that too many ideas were packed into one spoken unit.`,
+    )
+  }
+
+  return {
+    speakingRateWpm,
+    averagePauseMs: Number.isFinite(averagePauseMs) ? Math.round(averagePauseMs) : null,
+    longestPauseMs: Number.isFinite(longestPauseMs) ? Math.round(longestPauseMs) : null,
+    longPauseCount,
+    segmentCount: orderedSegments.length,
+    coverageSeconds: Number.isFinite(coverageSeconds) ? Number(coverageSeconds.toFixed(2)) : null,
+    notes,
+  }
 }
 
 function normalizeMoment(moment, index, transcript) {
@@ -73,7 +181,7 @@ function normalizeMoment(moment, index, transcript) {
         'Think about landing one complete spoken idea at a time before moving to the next one.',
       drill:
         'Say the same idea again in two short spoken sentences, with a clear pause between them.',
-      category: moment?.category || 'Flow + clarity',
+      category: moment?.category || 'Delivery + clarity',
     }
   }
 
@@ -189,8 +297,23 @@ function mergeModelFeedback(transcript, modelFeedback) {
   }
 }
 
-async function requestOllamaFeedback(transcript) {
+async function requestOllamaFeedback(transcript, deliveryProfile) {
   console.log('[analyze] requesting Ollama feedback')
+  const deliveryContext = [
+    deliveryProfile?.speakingRateWpm !== null
+      ? `- Estimated speaking rate: ${deliveryProfile.speakingRateWpm} words per minute`
+      : '- Estimated speaking rate: unavailable',
+    deliveryProfile?.averagePauseMs !== null
+      ? `- Average pause: ${formatMs(deliveryProfile.averagePauseMs)}`
+      : '- Average pause: unavailable',
+    deliveryProfile?.longestPauseMs !== null
+      ? `- Longest pause: ${formatMs(deliveryProfile.longestPauseMs)}`
+      : '- Longest pause: unavailable',
+    `- Long pauses over about 1.2s: ${deliveryProfile?.longPauseCount ?? 0}`,
+    `- Speech segments detected: ${deliveryProfile?.segmentCount ?? 0}`,
+    ...(Array.isArray(deliveryProfile?.notes) ? deliveryProfile.notes.map((note) => `- ${note}`) : []),
+  ].join('\n')
+
   const response = await fetch(`${ollamaApiUrl}/api/chat`, {
     method: 'POST',
     headers: {
@@ -204,7 +327,7 @@ async function requestOllamaFeedback(transcript) {
         {
           role: 'system',
           content:
-            'You are a Spanish speaking coach. Return only JSON with keys sessionSnapshot, coachingDimensions, and coachingMoments. Every field must reflect the specific transcript, not generic product copy. Be constructive, concise, and explain patterns behind the errors. Judge spoken language like an experienced teacher, not like a rigid grammar checker. Natural hesitation, brief repetition, self-repair, and ordinary thinking pauses are acceptable unless they materially reduce clarity or make the speaker difficult to follow. Focus criticism on the factors that most affect intelligibility, precision, and listener effort. Avoid placeholders and avoid mentioning apps, products, local analysis, future versions, or AI systems.',
+            'You are a Spanish speaking coach. Return only JSON with keys sessionSnapshot, coachingDimensions, and coachingMoments. Every field must reflect the specific transcript and timing profile, not generic product copy. Be constructive, concise, and explain patterns behind the errors. Judge spoken language like an experienced teacher, not like a rigid grammar checker. Natural hesitation, brief repetition, self-repair, and ordinary thinking pauses are acceptable unless they materially reduce clarity or make the speaker difficult to follow. Focus criticism on the factors that most affect intelligibility, precision, and listener effort. Avoid placeholders and avoid mentioning apps, products, local analysis, future versions, or AI systems.',
         },
         {
           role: 'user',
@@ -213,22 +336,27 @@ async function requestOllamaFeedback(transcript) {
 Transcript:
 ${transcript}
 
+Delivery timing profile:
+${deliveryContext}
+
 Schema expectations:
 - sessionSnapshot: { title, transcript, insight, stats[{label, value}] }
-- coachingDimensions: 4 items for grammar, flow, idiomacy, vocabulary
+- coachingDimensions: 4 items for grammar, delivery, idiomacy, vocabulary
 - coachingMoments: up to 4 items with { id, label, focus, original, revision, why, reframe, drill, category }
 
 Additional rules:
 - The insight must summarize this recording specifically in 1-2 sentences.
 - Each coaching dimension description must refer to what happened in this recording.
 - Each dimension needs 2-3 concrete signals taken from this transcript.
+- The Delivery dimension should use the timing profile above to discuss pace, pause distribution, chunking, and listener effort.
 - Each coaching moment must quote or closely paraphrase a real example from the transcript in "original" and give a stronger version in "revision".
 - Focus on why the learner likely made the error and how to think differently next time.
 - Do not over-penalize normal spoken behavior such as short pauses, minor repetition, or self-correction when the message remains easy to follow.
-- In the Flow dimension, only flag hesitations or repetition when they noticeably increase listener effort or break coherence.
+- In the Delivery dimension, only flag pacing or pauses when they noticeably increase listener effort or break coherence.
 - Prefer high-signal feedback over nitpicking. Emphasize the errors or patterns that most interfere with comprehension, precision, or natural expression.
 - Treat this as spoken-language coaching only. Do not give advice about punctuation, capitalization, spelling, accent marks, orthography, or written formatting.
-- Use the exact titles: "Grammatical Acuteness", "Flow", "Idiomacy", "Vocabulary Range".`,
+- Do not comment on pronunciation quality.
+- Use the exact titles: "Grammatical Acuteness", "Delivery", "Idiomacy", "Vocabulary Range".`,
         },
       ],
     }),
@@ -285,9 +413,12 @@ app.post(
       await fs.writeFile(tempPath, request.file.buffer)
       console.log('[analyze] temporary file written')
       console.log('[analyze] starting transcription')
-      const transcript = await transcribeAudioFile(tempPath, language)
+      const transcription = await transcribeAudioFile(tempPath, language)
+      const transcript = transcription.text
+      const deliveryProfile = buildDeliveryProfile(transcript, transcription.segments)
       console.log('[analyze] transcription completed', {
         transcriptLength: transcript.length,
+        segmentCount: transcription.segments.length,
       })
 
       if (!transcript) {
@@ -297,7 +428,7 @@ app.post(
         return
       }
 
-      const modelFeedback = await requestOllamaFeedback(transcript)
+      const modelFeedback = await requestOllamaFeedback(transcript, deliveryProfile)
       const merged = mergeModelFeedback(transcript, modelFeedback)
       console.log('[analyze] model output merged', {
         dimensions: merged.coachingDimensions.length,

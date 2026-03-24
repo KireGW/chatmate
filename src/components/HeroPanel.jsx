@@ -22,7 +22,7 @@ export function HeroPanel({
         <h1>A speaking coach for deeper Spanish analysis.</h1>
         <p className="hero-description">
           Chatmate is designed to diagnose spoken Spanish with more than surface
-          correction. It listens for patterns in grammatical control, flow,
+          correction. It listens for patterns in grammatical control, delivery,
           idiomacy, and vocabulary range, then explains why those patterns are
           appearing and how to reason your way toward stronger speech.
         </p>

@@ -17,7 +17,7 @@ const emptySnapshot = {
   title: 'No recording yet',
   transcript: '',
   insight:
-    'Record a Spanish speaking turn to receive structured, pedagogically focused feedback on grammar, flow, idiomacy, and lexical choice.',
+    'Record a Spanish speaking turn to receive structured, pedagogically focused feedback on grammar, delivery, idiomacy, and lexical choice.',
   waveform: [10, 16, 12, 18, 14, 20, 14, 11, 17, 13, 19, 12, 16, 10, 14, 11],
   stats: [],
 }
@@ -84,10 +84,10 @@ const canonicalDimensions = [
     match: /grammatical acuteness|grammar|dimension 1/i,
   },
   {
-    key: 'flow',
-    title: 'Flow',
+    key: 'delivery',
+    title: 'Delivery',
     score: '02',
-    match: /flow|dimension 2/i,
+    match: /delivery|flow|dimension 2/i,
   },
   {
     key: 'idiomacy',
@@ -603,7 +603,7 @@ function App() {
           <SectionTitle
             eyebrow="Analysis"
             title="A diagnostic reading of this speaking turn"
-            description="The analysis below is designed to go beyond correction and explain the underlying patterns shaping grammatical accuracy, flow, idiomacy, and vocabulary choice."
+            description="The analysis below is designed to go beyond correction and explain the underlying patterns shaping grammatical accuracy, delivery, idiomacy, and vocabulary choice."
             id="results-title"
           />
 

@@ -17,8 +17,24 @@ def main():
 
     model = WhisperModel(model_size, device=device, compute_type=compute_type)
     segments, _info = model.transcribe(audio_path, language=language, vad_filter=True)
-    text = " ".join(segment.text.strip() for segment in segments).strip()
-    print(json.dumps({"text": text}, ensure_ascii=False))
+    collected_segments = []
+
+    for segment in segments:
+        cleaned_text = segment.text.strip()
+
+        if not cleaned_text:
+            continue
+
+        collected_segments.append(
+            {
+                "start": segment.start,
+                "end": segment.end,
+                "text": cleaned_text,
+            }
+        )
+
+    text = " ".join(segment["text"] for segment in collected_segments).strip()
+    print(json.dumps({"text": text, "segments": collected_segments}, ensure_ascii=False))
 
 
 if __name__ == "__main__":

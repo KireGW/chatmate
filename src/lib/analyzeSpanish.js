@@ -110,7 +110,7 @@ function buildRuleBasedIssues(text) {
         'Do not solve the whole thought in one sentence. Land the main point first, then add the next idea in a second sentence.',
       drill:
         'Take one long answer and split it into two short sentences before saying it again.',
-      category: 'Flow',
+      category: 'Delivery',
       dimension: 'flow',
       signal: 'A long run-on structure is increasing planning pressure',
     })
@@ -129,7 +129,7 @@ function buildRuleBasedIssues(text) {
         'Instead of filling the silence, shorten the next sentence and restart with a simpler structure you can finish cleanly.',
       drill:
         'Answer the same question again with one sentence only, no filler words allowed.',
-      category: 'Flow',
+      category: 'Delivery',
       dimension: 'flow',
       signal: 'Repeated filler words suggest hesitation and planning pressure',
     })
@@ -151,7 +151,7 @@ function buildRuleBasedIssues(text) {
         'Memorize connector chunks as ready-made pieces: "así que", "pero", "porque", "entonces". They help you stay inside Spanish while planning the rest.',
       drill:
         'Retell the same answer using only Spanish connectors: "pero", "porque", "entonces", "así que".',
-      category: 'Flow + vocabulary',
+      category: 'Delivery + vocabulary',
       dimension: 'flow',
       signal: 'The sentence leaves Spanish when connector chunks are not available quickly enough',
     })
@@ -220,7 +220,7 @@ function buildStats(text) {
       value: `${clamp(92 - grammarPenalty - accentPenalty / 2, 58, 96)}%`,
     },
     {
-      label: 'Flow',
+      label: 'Delivery',
       value: `${clamp(88 - fillerPenalty - englishPenalty / 2 - flowPenalty, 52, 95)}%`,
     },
     {
@@ -248,7 +248,7 @@ function buildInsight(text) {
   }
 
   if (countMatches(` ${lower} `, englishMarkers) > 0) {
-    notes.push('Flow seems to break where Spanish connector chunks are not fully available yet.')
+    notes.push('Delivery seems to break where Spanish connector chunks are not fully available yet.')
   }
 
   if (lower.includes('ocupado con mi trabajo') || lower.includes('muy ')) {
@@ -295,16 +295,16 @@ function buildDimensions(text) {
       ],
     },
     {
-      title: 'Flow',
+      title: 'Delivery',
       score: '02',
       description:
         flowIssues.length
-          ? 'Flow is being affected by planning load in this recording. The sentence tries to carry more meaning than the current spoken control can support cleanly.'
+          ? 'Delivery is being affected by planning load in this recording. The sentence tries to carry more meaning than the current spoken control can support cleanly.'
           : countMatches(` ${lower} `, englishMarkers) > 0
-          ? 'Flow weakens where the sentence slips toward English, which usually means the full Spanish chunk is not fully automatic yet.'
+          ? 'Delivery weakens where the sentence slips toward English, which usually means the full Spanish chunk is not fully automatic yet.'
           : lower.includes('...')
             ? 'The pacing in this recording suggests hesitation points that interrupt the thought before it fully lands.'
-            : 'Flow is relatively steady in this recording, with only a few places where the phrasing could move more naturally.',
+            : 'Delivery is relatively steady in this recording, with only a few places where the phrasing could move more naturally.',
       signals: [
         flowIssues[0]?.signal ||
           (lower.includes('...')
@@ -427,7 +427,7 @@ function buildMoments(text) {
         'When a sentence starts to collapse, reach for a bridge expression first: "asi que", "por eso", "entonces", "pero". That often buys enough structure to keep going in Spanish.',
       drill:
         'Retell the same idea three times using "asi que", "por eso", and "entonces" as your connector.',
-      category: 'Flow + vocabulary',
+      category: 'Delivery + vocabulary',
     })
   }
 
