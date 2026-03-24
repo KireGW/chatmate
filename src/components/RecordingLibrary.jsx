@@ -28,6 +28,7 @@ export function RecordingLibrary({
   onDeleteRecording,
   onOpenRecording,
   onOpenTranscript,
+  onRenameRecording,
   selectedRecordingId,
 }) {
   return (
@@ -95,6 +96,13 @@ export function RecordingLibrary({
                     onClick={() => onOpenRecording(item.id)}
                   >
                     Open analysis
+                  </button>
+                  <button
+                    type="button"
+                    className="library-secondary"
+                    onClick={() => onRenameRecording(item.id)}
+                  >
+                    Rename
                   </button>
                   <button
                     type="button"

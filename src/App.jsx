@@ -146,6 +146,7 @@ function App() {
   const [isLibraryLoading, setIsLibraryLoading] = useState(true)
   const [recordingLibrary, setRecordingLibrary] = useState([])
   const [selectedRecordingId, setSelectedRecordingId] = useState('')
+  const [activeView, setActiveView] = useState('coach')
   const [isTranscriptOpen, setIsTranscriptOpen] = useState(false)
   const [transcriptModalRecording, setTranscriptModalRecording] = useState(null)
   const [analysisElapsedSeconds, setAnalysisElapsedSeconds] = useState(0)
@@ -233,6 +234,7 @@ function App() {
     })
 
     openRecordingState(pendingItem)
+    setActiveView('coach')
     setIsPreparingRecording(false)
   }, [audioBlob, transcript])
 
@@ -324,6 +326,7 @@ function App() {
     }
 
     openRecordingState(selected)
+    setActiveView('coach')
   }
 
   function openTranscript(recordingId) {
@@ -377,10 +380,66 @@ function App() {
     })
   }
 
+  function renameRecording(recordingId) {
+    const currentLibrary = recordingLibraryRef.current
+    const recording = currentLibrary.find((item) => item.id === recordingId)
+
+    if (!recording) {
+      return
+    }
+
+    const nextTitle = window.prompt('Rename this recording', recording.title)
+
+    if (typeof nextTitle !== 'string') {
+      return
+    }
+
+    const trimmedTitle = nextTitle.trim()
+
+    if (!trimmedTitle || trimmedTitle === recording.title) {
+      return
+    }
+
+    setRecordingLibrary((current) =>
+      current.map((item) =>
+        item.id === recordingId
+          ? {
+              ...item,
+              title: trimmedTitle,
+            }
+          : item,
+      ),
+    )
+
+    if (selectedRecordingId === recordingId) {
+      setAnalysisState((current) => ({
+        ...current,
+        snapshot: {
+          ...current.snapshot,
+          title: trimmedTitle,
+        },
+      }))
+    }
+
+    if (transcriptModalRecording?.id === recordingId) {
+      setTranscriptModalRecording((current) =>
+        current
+          ? {
+              ...current,
+              title: trimmedTitle,
+            }
+          : current,
+      )
+    }
+  }
+
   async function analyzeSelectedRecording(recordingId) {
+    const currentLibrary = recordingLibraryRef.current
     const recordingToAnalyze = recordingId
-      ? recordingLibrary.find((item) => item.id === recordingId) ?? null
-      : selectedRecording ?? recordingLibrary.find((item) => item.audioBlob) ?? null
+      ? currentLibrary.find((item) => item.id === recordingId) ?? null
+      : selectedRecordingId
+        ? currentLibrary.find((item) => item.id === selectedRecordingId) ?? null
+        : currentLibrary.find((item) => item.audioBlob) ?? null
 
     if (!recordingToAnalyze) {
       setAnalysisState((current) => ({
@@ -390,11 +449,21 @@ function App() {
       return
     }
 
+    if (!(recordingToAnalyze.audioBlob instanceof Blob)) {
+      setAnalysisState((current) => ({
+        ...current,
+        error: 'This recording is still being prepared. Please wait a moment and try again.',
+      }))
+      return
+    }
+
     const finalTranscript = recordingToAnalyze.transcript.trim()
 
     if (recordingToAnalyze.id !== selectedRecordingId) {
       openRecordingState(recordingToAnalyze)
     }
+
+    setActiveView('coach')
 
     setAnalysisState((current) => ({
       ...current,
@@ -415,7 +484,7 @@ function App() {
 
     try {
       const analysis = await analyzeRecording({
-        audioBlob: selectedRecording.audioBlob,
+        audioBlob: recordingToAnalyze.audioBlob,
         transcript: finalTranscript,
       })
 
@@ -481,6 +550,26 @@ function App() {
 
   return (
     <main className="app-shell">
+      <nav className="view-switcher" aria-label="Chatmate sections">
+        <button
+          type="button"
+          className={`view-switcher__button${activeView === 'coach' ? ' is-active' : ''}`}
+          onClick={() => setActiveView('coach')}
+        >
+          Coach
+        </button>
+        <button
+          type="button"
+          className={`view-switcher__button${activeView === 'library' ? ' is-active' : ''}`}
+          onClick={() => setActiveView('library')}
+        >
+          Library
+          {recordingLibrary.length ? ` (${recordingLibrary.length})` : ''}
+        </button>
+      </nav>
+
+      {activeView === 'coach' ? (
+        <>
       <HeroPanel
         audioUrl={audioUrl}
         canAnalyze={canAnalyze}
@@ -489,6 +578,7 @@ function App() {
         isFinalizingCapture={isFinalizingCapture}
         isRecording={isRecording}
         onAnalyze={analyzeSelectedRecording}
+        onRenameRecording={renameRecording}
         onStartSession={handleStartSession}
         onStopSession={handleStopSession}
         selectedRecording={selectedRecording}
@@ -501,9 +591,15 @@ function App() {
       {hasFeedback ? (
         <section
           ref={feedbackSectionRef}
-          className="section-grid"
+          className="section-grid section-grid--analysis"
           aria-labelledby="results-title"
         >
+          <div className="analysis-link">
+            <p className="analysis-link__title">
+              {selectedRecording?.title || analysisState.snapshot.title || 'Current speaking sample'}
+            </p>
+          </div>
+
           <SectionTitle
             eyebrow="Analysis"
             title="A diagnostic reading of this speaking turn"
@@ -564,17 +660,11 @@ function App() {
             ))}
           </div>
         </section>
-      ) : (
-        <section className="section-grid" aria-labelledby="analyze-help-title">
-          <SectionTitle
-            eyebrow="Next step"
-            title="Record a speaking turn, then generate the analysis"
-            description="Once you stop recording, press Analyze to produce a structured commentary on what happened in the Spanish, why those patterns appeared, and how to think more effectively the next time you speak."
-            id="analyze-help-title"
-          />
-        </section>
-      )}
+      ) : null}
+        </>
+      ) : null}
 
+      {activeView === 'library' ? (
       <section className="section-grid" aria-labelledby="library-title">
         <SectionTitle
           eyebrow="Library"
@@ -590,9 +680,11 @@ function App() {
           onDeleteRecording={deleteRecording}
           onOpenRecording={openRecording}
           onOpenTranscript={openTranscript}
+          onRenameRecording={renameRecording}
           selectedRecordingId={selectedRecordingId}
         />
       </section>
+      ) : null}
 
       {isTranscriptOpen ? (
         <div

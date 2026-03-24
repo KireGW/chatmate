@@ -247,10 +247,6 @@ function buildInsight(text) {
     notes.push('The main grammatical pressure point is a temporary-state description that leans toward ser instead of estar.')
   }
 
-  if (/cafe|asi|llegue|pare|cafeteria|vacia/i.test(text)) {
-    notes.push('The recording also suggests written-form cleanup around accent placement.')
-  }
-
   if (countMatches(` ${lower} `, englishMarkers) > 0) {
     notes.push('Flow seems to break where Spanish connector chunks are not fully available yet.')
   }
@@ -282,18 +278,14 @@ function buildDimensions(text) {
           ? 'This recording shows clear grammar slippage inside the sentence, which suggests the structure is not yet stable enough to hold under speaking pressure.'
           : lower.includes('fue muy llena')
           ? 'This recording shows a grammar choice that is understandable but still points to a deeper ser-vs-estar distinction.'
-          : /cafe|asi|llegue|pare|cafeteria|vacia/i.test(text)
-            ? 'The grammar is mostly stable here, but the recording still reveals written-form details that affect polished Spanish.'
-            : 'The grammar in this recording is fairly stable, so the next step is sharpening precision rather than repairing major structure.',
+          : 'The grammar in this recording is fairly stable, so the next step is sharpening precision rather than repairing major structure.',
       signals: [
         grammarIssues[0]?.signal ||
           (lower.includes('fue muy llena')
           ? 'Temporary-state phrasing flagged around ser vs estar'
           : 'Verb-state choices look mostly stable in this turn'),
         grammarIssues[1]?.signal ||
-          (/cafe|asi|llegue|pare|cafeteria|vacia/i.test(text)
-          ? 'Accent marks are worth another pass'
-          : 'Accent placement appears steady in this sample'),
+          'Agreement and tense handling stay fairly controlled in this sample',
         grammarIssues[2]?.signal ||
           (lower.includes('fue muy llena')
           ? 'The error suggests a meaning-choice issue, not only a missing form'
@@ -400,29 +392,6 @@ function buildMoments(text) {
       category: issue.category,
     })
   })
-
-  if (/cafe|cafeteria|asi|llegue|pare|vacia/i.test(text)) {
-    moments.push({
-      id: 'moment-accents',
-      label: 'Moment 01',
-      focus: 'Accent marks and polished written form',
-      original: text,
-      revision: text
-        .replaceAll(/\bcafe\b/gi, 'café')
-        .replaceAll(/\bcafeteria\b/gi, 'cafetería')
-        .replaceAll(/\basi\b/gi, 'así')
-        .replaceAll(/\bllegue\b/gi, 'llegué')
-        .replaceAll(/\bpare\b/gi, 'paré')
-        .replaceAll(/\bvacia\b/gi, 'vacía'),
-      why:
-        'When speech is converted to text, accent marks are often lost. In Spanish, those marks are not cosmetic; they can change pronunciation and sometimes meaning.',
-      reframe:
-        'After speaking, do a fast written pass asking: which words here normally carry an accent even if I did not hear it strongly in my own speech?',
-      drill:
-        'Read the corrected version aloud once, then write it from memory with the accents added.',
-      category: 'Grammar + orthography',
-    })
-  }
 
   if (lower.includes('fue muy llena')) {
     moments.push({

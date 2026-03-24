@@ -15,6 +15,19 @@ const ollamaApiUrl = process.env.OLLAMA_API_URL || 'http://127.0.0.1:11434'
 const ollamaModel = process.env.OLLAMA_MODEL || 'gpt-oss:20b'
 const projectPythonBin = path.join(process.cwd(), '.venv', 'bin', 'python3')
 
+app.use((request, response, next) => {
+  response.header('Access-Control-Allow-Origin', '*')
+  response.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS')
+  response.header('Access-Control-Allow-Headers', 'Content-Type')
+
+  if (request.method === 'OPTIONS') {
+    response.sendStatus(204)
+    return
+  }
+
+  next()
+})
+
 app.use(express.json())
 
 app.get('/api/health', (_request, response) => {
@@ -55,9 +68,9 @@ function normalizeMoment(moment, index, transcript) {
       original: moment?.original || transcript,
       revision: moment?.revision || transcript,
       why:
-        'The issue here is not really punctuation. It is that too many ideas are being carried at once, which makes the spoken message harder to follow.',
+        'The issue here is that too many ideas are being carried at once, which makes the spoken message harder to follow.',
       reframe:
-        'Instead of thinking about written correctness, think about landing one complete spoken idea at a time before moving to the next one.',
+        'Think about landing one complete spoken idea at a time before moving to the next one.',
       drill:
         'Say the same idea again in two short spoken sentences, with a clear pause between them.',
       category: moment?.category || 'Flow + clarity',
@@ -99,7 +112,7 @@ function normalizeDimension(dimension, index) {
 }
 
 function isWritingFocusedAdvice(text) {
-  return /\bpunctuation|capitalization|comma|period|full stop|written language|written form|spelling|orthography|acento escrito|puntuación\b/i.test(
+  return /\bpunctuation|capitalization|comma|period|full stop|written language|written form|spelling|orthography|acento escrito|puntuación|accent mark|accent marks|orthographic|orthography\b/i.test(
     text,
   )
 }
@@ -214,7 +227,7 @@ Additional rules:
 - Do not over-penalize normal spoken behavior such as short pauses, minor repetition, or self-correction when the message remains easy to follow.
 - In the Flow dimension, only flag hesitations or repetition when they noticeably increase listener effort or break coherence.
 - Prefer high-signal feedback over nitpicking. Emphasize the errors or patterns that most interfere with comprehension, precision, or natural expression.
-- Treat this as spoken-language coaching, not written-language correction. Do not give advice about punctuation, capitalization, or written formatting unless the point is explicitly about how ideas are being chunked in speech.
+- Treat this as spoken-language coaching only. Do not give advice about punctuation, capitalization, spelling, accent marks, orthography, or written formatting.
 - Use the exact titles: "Grammatical Acuteness", "Flow", "Idiomacy", "Vocabulary Range".`,
         },
       ],
