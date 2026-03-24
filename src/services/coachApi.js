@@ -1,5 +1,7 @@
 import { analyzeSpanishTranscript } from '../lib/analyzeSpanish.js'
 
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || ''
+
 export async function analyzeRecording({ audioBlob, transcript }) {
   if (audioBlob) {
     try {
@@ -7,7 +9,7 @@ export async function analyzeRecording({ audioBlob, transcript }) {
       formData.append('file', audioBlob, 'recording.webm')
       formData.append('language', 'es')
 
-      const response = await fetch('/api/analyze-recording', {
+      const response = await fetch(`${apiBaseUrl}/api/analyze-recording`, {
         method: 'POST',
         body: formData,
       })
@@ -25,6 +27,6 @@ export async function analyzeRecording({ audioBlob, transcript }) {
   }
 
   throw new Error(
-    'Analysis requires the backend service with an OpenAI API key, or a transcript fallback.',
+    'Analysis requires the backend service for audio transcription, or a transcript fallback.',
   )
 }

@@ -28,7 +28,7 @@ function createPendingSnapshot() {
     title: 'New recording',
     transcript: '',
     insight:
-      'This recording has been saved locally. Press Analyze to upload it for transcription and feedback.',
+      'This recording has been saved locally. Press Analyze to process it and generate feedback.',
     waveform: [10, 16, 12, 18, 14, 20, 14, 11, 17, 13, 19, 12, 16, 10, 14, 11],
     stats: [],
   }
@@ -159,7 +159,7 @@ function App() {
     speechError ||
     analysisState.error ||
     (selectedRecording?.status === 'saved'
-      ? 'This recording is saved locally. Press Analyze to upload it for transcription and feedback.'
+      ? 'This recording is saved locally. Press Analyze to process it and generate feedback.'
       : '')
 
   function openRecordingState(recording) {
