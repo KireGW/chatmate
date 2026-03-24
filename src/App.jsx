@@ -4,7 +4,6 @@ import { HeroPanel } from './components/HeroPanel.jsx'
 import { SectionTitle } from './components/SectionTitle.jsx'
 import { FeedbackDimensionCard } from './components/FeedbackDimensionCard.jsx'
 import { TranscriptWorkbench } from './components/TranscriptWorkbench.jsx'
-import { ImprovementRoadmap } from './components/ImprovementRoadmap.jsx'
 import { RecordingLibrary } from './components/RecordingLibrary.jsx'
 import { useSpeechCoach } from './hooks/useSpeechCoach.js'
 import {
@@ -14,15 +13,25 @@ import {
   saveRecordingLibrary,
 } from './lib/recordingLibrary.js'
 import { analyzeTranscript } from './services/coachApi.js'
-import { roadmapSteps } from './data/spanishCoach.js'
 
 const emptySnapshot = {
   title: 'No recording selected',
   transcript: '',
   insight:
-    'Start a new recording or open one from your library to see transcript feedback here.',
+    'Record something in Spanish, then select it and press Analyze to generate feedback.',
   waveform: [10, 16, 12, 18, 14, 20, 14, 11, 17, 13, 19, 12, 16, 10, 14, 11],
   stats: [],
+}
+
+function createPendingSnapshot() {
+  return {
+    title: 'New recording',
+    transcript: '',
+    insight:
+      'This recording has been saved locally. Press Analyze when you want feedback.',
+    waveform: [10, 16, 12, 18, 14, 20, 14, 11, 17, 13, 19, 12, 16, 10, 14, 11],
+    stats: [],
+  }
 }
 
 function App() {
@@ -30,8 +39,6 @@ function App() {
     audioBlob,
     audioUrl,
     error: speechError,
-    interimTranscript,
-    isRecognitionSupported,
     isRecording,
     startSession,
     stopSession,
@@ -48,7 +55,6 @@ function App() {
   const [isLibraryLoading, setIsLibraryLoading] = useState(true)
   const [recordingLibrary, setRecordingLibrary] = useState([])
   const [selectedRecordingId, setSelectedRecordingId] = useState('')
-  const analyzedSessionKeyRef = useRef('')
   const recordingLibraryRef = useRef([])
 
   useEffect(() => {
@@ -89,98 +95,47 @@ function App() {
     }
 
     const latestRecording = recordingLibrary[0]
-    setSelectedRecordingId(latestRecording.id)
-    setAnalysisState({
-      isLoading: false,
-      error: '',
-      snapshot: latestRecording.snapshot,
-      dimensions: latestRecording.dimensions,
-      moments: latestRecording.moments,
-    })
-    setActiveMomentId(latestRecording.moments[0]?.id ?? '')
+    openRecordingState(latestRecording)
   }, [recordingLibrary, selectedRecordingId])
 
   useEffect(() => {
-    const finalTranscript = transcript.trim()
-    const sessionKey = audioBlob ? `${audioBlob.size}-${finalTranscript}` : ''
-
-    if (!finalTranscript || !audioBlob || analyzedSessionKeyRef.current === sessionKey) {
+    if (!audioBlob) {
       return
     }
 
-    analyzedSessionKeyRef.current = sessionKey
-
-    let ignore = false
-
-    async function runAnalysis() {
-      setAnalysisState((current) => ({
-        ...current,
-        isLoading: true,
-        error: '',
-      }))
-
-      try {
-        const analysis = await analyzeTranscript(finalTranscript)
-
-        if (ignore) {
-          return
-        }
-
-        setAnalysisState({
-          isLoading: false,
-          error: '',
-          snapshot: analysis.sessionSnapshot,
-          dimensions: analysis.coachingDimensions,
-          moments: analysis.coachingMoments,
-        })
-        setActiveMomentId(analysis.coachingMoments[0]?.id ?? '')
-        const nextItem = {
-          id: crypto.randomUUID(),
-          createdAt: new Date().toISOString(),
-          title: analysis.sessionSnapshot.title,
-          transcript: finalTranscript,
-          audioBlob,
-          audioUrl: createLibraryRecordingAudioUrl(audioBlob),
-          snapshot: analysis.sessionSnapshot,
-          dimensions: analysis.coachingDimensions,
-          moments: analysis.coachingMoments,
-          stats: analysis.sessionSnapshot.stats,
-        }
-        setRecordingLibrary((current) => {
-          const nextLibrary = [nextItem, ...current].slice(0, 20)
-          const removedItems = [nextItem, ...current].slice(20)
-
-          removedItems.forEach((item) => {
-            if (item.audioUrl?.startsWith('blob:')) {
-              URL.revokeObjectURL(item.audioUrl)
-            }
-          })
-
-          setSelectedRecordingId(nextItem.id)
-          return nextLibrary
-        })
-      } catch (error) {
-        if (ignore) {
-          return
-        }
-
-        analyzedSessionKeyRef.current = ''
-        setAnalysisState((current) => ({
-          ...current,
-          isLoading: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : 'Unable to analyze the latest speaking turn.',
-        }))
-      }
+    const trimmedTranscript = transcript.trim()
+    const pendingSnapshot = {
+      ...createPendingSnapshot(),
+      transcript: trimmedTranscript,
+    }
+    const pendingItem = {
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      title: trimmedTranscript ? 'New recording' : 'Untitled recording',
+      transcript: trimmedTranscript,
+      audioBlob,
+      audioUrl: createLibraryRecordingAudioUrl(audioBlob),
+      snapshot: pendingSnapshot,
+      dimensions: [],
+      moments: [],
+      stats: [],
+      status: 'saved',
     }
 
-    runAnalysis()
+    setRecordingLibrary((current) => {
+      const nextLibrary = [pendingItem, ...current].slice(0, 20)
+      const removedItems = [pendingItem, ...current].slice(20)
 
-    return () => {
-      ignore = true
-    }
+      removedItems.forEach((item) => {
+        if (item.audioUrl?.startsWith('blob:')) {
+          URL.revokeObjectURL(item.audioUrl)
+        }
+      })
+
+      return nextLibrary
+    })
+
+    openRecordingState(pendingItem)
   }, [audioBlob, transcript])
 
   useEffect(() => {
@@ -197,8 +152,27 @@ function App() {
     )
   }, [activeMomentId, analysisState.moments])
 
-  const liveTranscript = transcript || interimTranscript
-  const statusMessage = speechError || analysisState.error
+  const selectedRecording =
+    recordingLibrary.find((item) => item.id === selectedRecordingId) ?? null
+  const hasFeedback = Boolean(selectedRecording?.status === 'analyzed')
+  const statusMessage =
+    speechError ||
+    analysisState.error ||
+    (selectedRecording?.status === 'saved'
+      ? 'This recording is saved locally. Press Analyze when you want feedback.'
+      : '')
+
+  function openRecordingState(recording) {
+    setSelectedRecordingId(recording.id)
+    setAnalysisState({
+      isLoading: false,
+      error: '',
+      snapshot: recording.snapshot,
+      dimensions: recording.dimensions,
+      moments: recording.moments,
+    })
+    setActiveMomentId(recording.moments[0]?.id ?? '')
+  }
 
   function openRecording(recordingId) {
     const selected = recordingLibrary.find((item) => item.id === recordingId)
@@ -207,15 +181,75 @@ function App() {
       return
     }
 
-    setSelectedRecordingId(recordingId)
-    setAnalysisState({
-      isLoading: false,
+    openRecordingState(selected)
+  }
+
+  async function analyzeSelectedRecording() {
+    if (!selectedRecording) {
+      setAnalysisState((current) => ({
+        ...current,
+        error: 'Select a recording first.',
+      }))
+      return
+    }
+
+    const finalTranscript = selectedRecording.transcript.trim()
+
+    if (!finalTranscript) {
+      setAnalysisState((current) => ({
+        ...current,
+        error:
+          'This recording does not have a transcript yet, so feedback cannot be generated.',
+      }))
+      return
+    }
+
+    setAnalysisState((current) => ({
+      ...current,
+      isLoading: true,
       error: '',
-      snapshot: selected.snapshot,
-      dimensions: selected.dimensions,
-      moments: selected.moments,
-    })
-    setActiveMomentId(selected.moments[0]?.id ?? '')
+    }))
+
+    try {
+      const analysis = await analyzeTranscript(finalTranscript)
+
+      setRecordingLibrary((current) =>
+        current.map((item) => {
+          if (item.id !== selectedRecording.id) {
+            return item
+          }
+
+          return {
+            ...item,
+            title: analysis.sessionSnapshot.title,
+            transcript: finalTranscript,
+            snapshot: analysis.sessionSnapshot,
+            dimensions: analysis.coachingDimensions,
+            moments: analysis.coachingMoments,
+            stats: analysis.sessionSnapshot.stats,
+            status: 'analyzed',
+          }
+        }),
+      )
+
+      setAnalysisState({
+        isLoading: false,
+        error: '',
+        snapshot: analysis.sessionSnapshot,
+        dimensions: analysis.coachingDimensions,
+        moments: analysis.coachingMoments,
+      })
+      setActiveMomentId(analysis.coachingMoments[0]?.id ?? '')
+    } catch (error) {
+      setAnalysisState((current) => ({
+        ...current,
+        isLoading: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : 'Unable to analyze the selected recording.',
+      }))
+    }
   }
 
   function deleteRecording(recordingId) {
@@ -231,17 +265,17 @@ function App() {
         const fallback = nextLibrary[0]
 
         if (fallback) {
-          setSelectedRecordingId(fallback.id)
+          openRecordingState(fallback)
+        } else {
+          setSelectedRecordingId('')
           setAnalysisState({
             isLoading: false,
             error: '',
-            snapshot: fallback.snapshot,
-            dimensions: fallback.dimensions,
-            moments: fallback.moments,
+            snapshot: emptySnapshot,
+            dimensions: [],
+            moments: [],
           })
-          setActiveMomentId(fallback.moments[0]?.id ?? '')
-        } else {
-          setSelectedRecordingId('')
+          setActiveMomentId('')
         }
       }
 
@@ -253,72 +287,16 @@ function App() {
     <main className="app-shell">
       <HeroPanel
         audioUrl={audioUrl}
+        hasSelectedRecording={Boolean(selectedRecording)}
         isAnalyzing={analysisState.isLoading}
-        isRecognitionSupported={isRecognitionSupported}
         isRecording={isRecording}
-        liveTranscript={liveTranscript}
+        onAnalyze={analyzeSelectedRecording}
         onStartSession={startSession}
         onStopSession={stopSession}
+        selectedRecording={selectedRecording}
         sessionSnapshot={analysisState.snapshot}
         statusMessage={statusMessage}
       />
-
-      <section className="section-grid" aria-labelledby="dimensions-title">
-        <SectionTitle
-          eyebrow="Spanish-first coaching"
-          title="Feedback that teaches you how to think in Spanish"
-          description="Chatmate listens while you speak, then explains the deeper reason behind each issue across grammar, flow, idiomacy, and word choice."
-          id="dimensions-title"
-        />
-
-        <div className="dimension-grid">
-          {analysisState.dimensions.length ? (
-            analysisState.dimensions.map((dimension) => (
-              <FeedbackDimensionCard key={dimension.title} dimension={dimension} />
-            ))
-          ) : (
-            <article className="analysis-card" role="status">
-              <p className="chip-label">No feedback yet</p>
-              <p>
-                When you record a session, grammar, flow, idiomacy, and
-                vocabulary feedback will appear here.
-              </p>
-            </article>
-          )}
-        </div>
-      </section>
-
-      <section
-        className="section-grid section-grid--split"
-        aria-labelledby="workbench-title"
-      >
-        <SectionTitle
-          eyebrow="Session workbench"
-          title="Replay a spoken moment and unpack what happened"
-          description="Each speaking turn is turned into coachable moments with a stronger version, the hidden reason for the issue, and a concrete way to practice."
-          id="workbench-title"
-        />
-
-        <TranscriptWorkbench
-          activeMoment={activeMoment}
-          coachingMoments={analysisState.moments}
-          onSelectMoment={setActiveMomentId}
-        />
-      </section>
-
-      <section
-        className="section-grid section-grid--split"
-        aria-labelledby="roadmap-title"
-      >
-        <SectionTitle
-          eyebrow="Practice loop"
-          title="Build sharper instincts, not just cleaner sentences"
-          description="This prototype already captures speech, produces a transcript, and returns structured coaching. The next step is swapping the heuristic backend for a stronger AI analysis pipeline."
-          id="roadmap-title"
-        />
-
-        <ImprovementRoadmap roadmapSteps={roadmapSteps} />
-      </section>
 
       <section
         className="section-grid section-grid--split"
@@ -326,19 +304,66 @@ function App() {
       >
         <SectionTitle
           eyebrow="Recording library"
-          title="Tidigare inspelningar, organiserade efter innehåll"
-          description="Varje inspelning sparas lokalt i webbläsaren med en automatisk titel baserad på vad du pratade om, så att du snabbt kan hitta tillbaka till rätt session."
+          title="Record first, analyze when you are ready"
+          description="Each recording is saved locally on this device. Select one from the library and press Analyze to generate Spanish feedback."
           id="library-title"
         />
 
         <RecordingLibrary
           isLoading={isLibraryLoading}
           items={recordingLibrary}
+          onAnalyzeRecording={analyzeSelectedRecording}
           onDeleteRecording={deleteRecording}
           onOpenRecording={openRecording}
           selectedRecordingId={selectedRecordingId}
         />
       </section>
+
+      {hasFeedback ? (
+        <>
+          <section className="section-grid" aria-labelledby="dimensions-title">
+            <SectionTitle
+              eyebrow="Feedback"
+              title="What to improve in this recording"
+              description="The analysis focuses on grammar, flow, idiomacy, and vocabulary for the selected Spanish recording."
+              id="dimensions-title"
+            />
+
+            <div className="dimension-grid">
+              {analysisState.dimensions.map((dimension) => (
+                <FeedbackDimensionCard key={dimension.title} dimension={dimension} />
+              ))}
+            </div>
+          </section>
+
+          <section
+            className="section-grid section-grid--split"
+            aria-labelledby="workbench-title"
+          >
+            <SectionTitle
+              eyebrow="Explanation"
+              title="See what happened and why"
+              description="Each coaching moment shows the original phrasing, a stronger alternative, and the thinking pattern behind the correction."
+              id="workbench-title"
+            />
+
+            <TranscriptWorkbench
+              activeMoment={activeMoment}
+              coachingMoments={analysisState.moments}
+              onSelectMoment={setActiveMomentId}
+            />
+          </section>
+        </>
+      ) : (
+        <section className="section-grid" aria-labelledby="analyze-help-title">
+          <SectionTitle
+            eyebrow="Next step"
+            title="Analyze a saved recording to get feedback"
+            description="Once a recording is selected, press Analyze to generate feedback. If no transcript is available yet, the app will tell you clearly."
+            id="analyze-help-title"
+          />
+        </section>
+      )}
     </main>
   )
 }

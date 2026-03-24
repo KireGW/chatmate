@@ -1,13 +1,26 @@
 function formatDate(value) {
-  return new Intl.DateTimeFormat('sv-SE', {
+  return new Intl.DateTimeFormat('en-GB', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(new Date(value))
 }
 
+function getStatusLabel(status) {
+  if (status === 'analyzed') {
+    return 'Feedback ready'
+  }
+
+  if (status === 'saved') {
+    return 'Saved'
+  }
+
+  return 'Recording'
+}
+
 export function RecordingLibrary({
   isLoading,
   items,
+  onAnalyzeRecording,
   onDeleteRecording,
   onOpenRecording,
   selectedRecordingId,
@@ -16,7 +29,7 @@ export function RecordingLibrary({
     <div className="library-shell">
       {isLoading ? (
         <article className="analysis-card" role="status">
-          <p className="chip-label">Bibliotek</p>
+          <p className="chip-label">Library</p>
           <p>Loading your saved recordings...</p>
         </article>
       ) : items.length ? (
@@ -33,14 +46,9 @@ export function RecordingLibrary({
                   <span className="library-card__date">
                     {formatDate(item.createdAt)}
                   </span>
-                  <button
-                    type="button"
-                    className="library-delete"
-                    onClick={() => onDeleteRecording(item.id)}
-                    aria-label={`Delete recording ${item.title}`}
-                  >
-                    Remove
-                  </button>
+                  <span className={`library-status library-status--${item.status || 'saved'}`}>
+                    {getStatusLabel(item.status)}
+                  </span>
                 </div>
 
                 <button
@@ -55,33 +63,40 @@ export function RecordingLibrary({
                     </div>
                   </div>
 
-                  <p className="library-card__transcript">{item.transcript}</p>
-
-                  <dl className="library-card__stats">
-                    {item.stats.map((stat) => (
-                      <div key={stat.label}>
-                        <dt>{stat.label}</dt>
-                        <dd>{stat.value}</dd>
-                      </div>
-                    ))}
-                  </dl>
+                  <p className="library-card__transcript">
+                    {item.transcript ||
+                      'No transcript yet. This recording is saved locally, but feedback cannot be generated yet.'}
+                  </p>
                 </button>
 
-                {item.audioUrl ? (
-                  <audio controls src={item.audioUrl} className="audio-player">
-                    Your browser does not support audio playback.
-                  </audio>
-                ) : null}
+                <div className="library-card__actions">
+                  <button
+                    type="button"
+                    className="library-analyze"
+                    onClick={onAnalyzeRecording}
+                    disabled={!isActive}
+                  >
+                    Analyze
+                  </button>
+                  <button
+                    type="button"
+                    className="library-delete"
+                    onClick={() => onDeleteRecording(item.id)}
+                    aria-label={`Delete recording ${item.title}`}
+                  >
+                    Remove
+                  </button>
+                </div>
               </article>
             )
           })}
         </div>
       ) : (
         <article className="analysis-card" role="status">
-          <p className="chip-label">Bibliotek</p>
+          <p className="chip-label">Library</p>
           <p>
-            Inga sparade inspelningar hittades i den här webbläsaren ännu. När
-            du spelar in något sparas det här med en automatisk titel.
+            No saved recordings were found in this browser yet. Record
+            something and it will appear here.
           </p>
         </article>
       )}
