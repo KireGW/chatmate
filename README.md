@@ -37,6 +37,17 @@ npm install
 npm run dev
 ```
 
+If you want to use the wheel already placed in the project root instead of
+installing from PyPI, you can do:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install ./faster_whisper-1.2.1-py3-none-any.whl
+```
+
+That matches the version pinned in `server/requirements.txt`.
+
 You can customize the backend in `.env`:
 
 - `OLLAMA_API_URL`
