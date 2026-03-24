@@ -1,32 +1,54 @@
-import { analyzeSpanishTranscript } from '../lib/analyzeSpanish.js'
-
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || ''
 
-export async function analyzeRecording({ audioBlob, transcript }) {
-  if (audioBlob) {
+export async function analyzeRecording({ audioBlob }) {
+  if (!audioBlob) {
+    throw new Error('No recording is available to analyze.')
+  }
+
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => {
+    controller.abort()
+  }, 90000)
+
+  const formData = new FormData()
+  formData.append('file', audioBlob, 'recording.webm')
+  formData.append('language', 'es')
+
+  let response
+
+  try {
+    response = await fetch(`${apiBaseUrl}/api/analyze-recording`, {
+      method: 'POST',
+      body: formData,
+      signal: controller.signal,
+    })
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(
+        'The analysis timed out. Please try a shorter recording or check whether the local model stack is still running.',
+      )
+    }
+
+    throw error
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
+
+  if (!response.ok) {
+    let message = 'The analysis service is unavailable right now.'
+
     try {
-      const formData = new FormData()
-      formData.append('file', audioBlob, 'recording.webm')
-      formData.append('language', 'es')
+      const payload = await response.json()
 
-      const response = await fetch(`${apiBaseUrl}/api/analyze-recording`, {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (response.ok) {
-        return response.json()
+      if (typeof payload?.error === 'string' && payload.error.trim()) {
+        message = payload.error
       }
     } catch {
-      // Fall back to local transcript-only analysis when the backend is unavailable.
+      // Keep the default message when the error response is not JSON.
     }
+
+    throw new Error(message)
   }
 
-  if (typeof transcript === 'string' && transcript.trim()) {
-    return analyzeSpanishTranscript(transcript)
-  }
-
-  throw new Error(
-    'Analysis requires the backend service for audio transcription, or a transcript fallback.',
-  )
+  return response.json()
 }

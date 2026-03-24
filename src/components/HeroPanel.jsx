@@ -1,4 +1,6 @@
 export function HeroPanel({
+  analysisElapsedSeconds,
+  analysisProgressPercent,
   audioUrl,
   hasSelectedRecording,
   isAnalyzing,
@@ -14,11 +16,12 @@ export function HeroPanel({
     <section className="hero-panel">
       <div className="hero-copy">
         <p className="eyebrow">Chatmate</p>
-        <h1>Record your Spanish. Analyze it when you are ready.</h1>
+        <h1>A speaking coach for deeper Spanish analysis.</h1>
         <p className="hero-description">
-          A simple speaking workflow: make a recording, save it to your library,
-          and press Analyze to upload it for transcription and structured
-          Spanish feedback.
+          Chatmate is designed to diagnose spoken Spanish with more than surface
+          correction. It listens for patterns in grammatical control, flow,
+          idiomacy, and vocabulary range, then explains why those patterns are
+          appearing and how to reason your way toward stronger speech.
         </p>
 
         <div className="hero-actions">
@@ -37,38 +40,82 @@ export function HeroPanel({
             onClick={onAnalyze}
             disabled={isRecording || isAnalyzing || !hasSelectedRecording}
           >
-            {isAnalyzing ? 'Analyzing...' : 'Analyze selected recording'}
+            {isAnalyzing ? 'Analyzing...' : 'Analyze'}
           </button>
         </div>
+
+        {isAnalyzing ? (
+          <div className="analysis-progress" role="status" aria-live="polite">
+            <div className="analysis-progress__header">
+              <span className="analysis-progress__dot" />
+              <div>
+                <p className="chip-label">Analysis in progress</p>
+                <p className="analysis-progress__time">
+                  {analysisElapsedSeconds > 0
+                    ? `${analysisElapsedSeconds}s elapsed`
+                    : 'Starting now'}
+                </p>
+              </div>
+              <strong className="analysis-progress__percent">
+                {analysisProgressPercent}%
+              </strong>
+            </div>
+            <div className="analysis-progress__bar" aria-hidden="true">
+              <span
+                className="analysis-progress__bar-fill"
+                style={{ width: `${analysisProgressPercent}%` }}
+              />
+            </div>
+            <div className="analysis-progress__steps">
+              <p className="analysis-progress__step is-active">
+                1. Uploading the recording
+              </p>
+              <p className="analysis-progress__step is-active">
+                2. Transcribing the Spanish
+              </p>
+              <p className="analysis-progress__step is-active">
+                3. Generating the coaching analysis
+              </p>
+            </div>
+            <div>
+              <p>
+                Estimated progress only. Local transcription and model analysis
+                can be slower on the first run.
+              </p>
+            </div>
+          </div>
+        ) : null}
 
         <div className="hero-status">
           <p>
             {isRecording
               ? 'Recording in progress.'
               : hasSelectedRecording
-                ? 'A recording is selected.'
-                : 'No recording selected yet.'}
+                ? 'Recording ready to analyze.'
+                : 'No recording yet.'}
           </p>
           <p>
             {isAnalyzing
-              ? 'Uploading audio, transcribing it, and generating feedback.'
-              : 'Analysis runs on the server after you press Analyze.'}
+              ? 'Uploading audio, transcribing it, and preparing a structured analysis.'
+              : 'When you press Analyze, the diagnostic result appears below.'}
           </p>
           {statusMessage ? <p className="hero-status__alert">{statusMessage}</p> : null}
         </div>
       </div>
 
-      <aside className="session-card" aria-label="Selected recording preview">
+      <aside className="session-card" aria-label="Recording window">
         <div className="session-card__header">
           <div>
-            <p className="session-label">Selected recording</p>
-            <h2>{sessionSnapshot.title}</h2>
+            <p className="session-label">Recording window</p>
+            <h2>{hasSelectedRecording ? 'Current speaking sample' : 'Ready to record'}</h2>
           </div>
           <span className="live-indicator">
             {isRecording
               ? 'Recording'
               : isAnalyzing
                 ? 'Analyzing'
+                : selectedRecording?.status === 'analyzing'
+                  ? 'Analyzing'
                 : selectedRecording?.status === 'analyzed'
                   ? 'Feedback ready'
                   : 'Saved'}
@@ -88,24 +135,14 @@ export function HeroPanel({
           ))}
         </div>
 
-        <div className="session-card__body">
-          <div className="transcript-chip">
-            <span className="chip-label">Transcript</span>
-            <p>
-              {sessionSnapshot.transcript ||
-                'After analysis, the server-generated transcript will appear here.'}
-            </p>
-          </div>
-
-          <div className="insight-panel">
-            <span className="chip-label">Status</span>
-            <p>{sessionSnapshot.insight}</p>
-          </div>
+        <div className="insight-panel">
+          <span className="chip-label">Overview</span>
+          <p>{sessionSnapshot.insight}</p>
         </div>
 
         {audioUrl || selectedRecording?.audioUrl ? (
           <div className="audio-panel">
-            <span className="chip-label">Session playback</span>
+            <span className="chip-label">Playback</span>
             <audio
               controls
               src={audioUrl || selectedRecording?.audioUrl}

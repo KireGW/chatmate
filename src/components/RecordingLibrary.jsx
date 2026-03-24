@@ -10,6 +10,10 @@ function getStatusLabel(status) {
     return 'Feedback ready'
   }
 
+  if (status === 'analyzing') {
+    return 'Analyzing'
+  }
+
   if (status === 'saved') {
     return 'Saved'
   }
@@ -23,6 +27,7 @@ export function RecordingLibrary({
   onAnalyzeRecording,
   onDeleteRecording,
   onOpenRecording,
+  onOpenTranscript,
   selectedRecordingId,
 }) {
   return (
@@ -58,25 +63,46 @@ export function RecordingLibrary({
                 >
                   <div className="library-card__header">
                     <div>
-                      <p className="chip-label">Recording</p>
+                      <p className="chip-label">Recording timestamp</p>
                       <h3>{item.title}</h3>
+                      <p className="library-card__summary">
+                        {item.summary || 'Summary available after analysis.'}
+                      </p>
                     </div>
                   </div>
-
-                  <p className="library-card__transcript">
-                    {item.transcript ||
-                      'No transcript yet. This recording is saved locally, but feedback cannot be generated yet.'}
-                  </p>
                 </button>
+
+                {item.audioUrl ? (
+                  <div className="library-card__audio">
+                    <audio controls src={item.audioUrl} className="audio-player">
+                      Your browser does not support audio playback.
+                    </audio>
+                  </div>
+                ) : null}
 
                 <div className="library-card__actions">
                   <button
                     type="button"
                     className="library-analyze"
-                    onClick={onAnalyzeRecording}
-                    disabled={!isActive}
+                    onClick={() => onAnalyzeRecording(item.id)}
+                    disabled={item.status === 'analyzing'}
                   >
-                    Analyze
+                    {item.status === 'analyzing' ? 'Analyzing...' : 'Analyze'}
+                  </button>
+                  <button
+                    type="button"
+                    className="library-secondary"
+                    onClick={() => onOpenRecording(item.id)}
+                  >
+                    Open analysis
+                  </button>
+                  <button
+                    type="button"
+                    className="library-secondary"
+                    onClick={() => onOpenTranscript(item.id)}
+                    disabled={!item.transcript}
+                  >
+                    Transcript
                   </button>
                   <button
                     type="button"

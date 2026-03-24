@@ -63,6 +63,10 @@ function normalizeRecording(item) {
     id: item?.id || crypto.randomUUID(),
     createdAt: item?.createdAt || new Date().toISOString(),
     title: item?.title || 'Untitled recording',
+    summary:
+      typeof item?.summary === 'string' && item.summary.trim()
+        ? item.summary
+        : snapshot?.title || 'Summary available after analysis.',
     transcript: typeof item?.transcript === 'string' ? item.transcript : '',
     audioBlob: item?.audioBlob instanceof Blob ? item.audioBlob : null,
     snapshot: {
@@ -105,6 +109,7 @@ function stripClientFields(item) {
     id: item.id,
     createdAt: item.createdAt,
     title: item.title,
+    summary: item.summary,
     transcript: item.transcript,
     audioBlob: item.audioBlob,
     snapshot: item.snapshot,

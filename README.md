@@ -31,7 +31,7 @@ Setup:
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r server/requirements.txt
-ollama pull qwen2.5:7b-instruct
+ollama pull gpt-oss:20b
 cp .env.example .env
 npm install
 npm run dev
@@ -52,10 +52,15 @@ You can customize the backend in `.env`:
 
 - `OLLAMA_API_URL`
 - `OLLAMA_MODEL`
+- `PYTHON_BIN`
 - `WHISPER_MODEL_SIZE`
 - `WHISPER_DEVICE`
 - `WHISPER_COMPUTE_TYPE`
 - `VITE_API_BASE_URL`
+
+`PYTHON_BIN` is optional. By default, the backend will try to use
+`/Users/erikgw/Documents/chatmate/.venv/bin/python3`. Set `PYTHON_BIN`
+explicitly if your Python environment lives somewhere else.
 
 Leave `VITE_API_BASE_URL` empty for local dev with the Vite proxy. Set it to
 your deployed backend URL for mobile or production use.
