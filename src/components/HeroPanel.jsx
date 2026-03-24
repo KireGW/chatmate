@@ -17,7 +17,8 @@ export function HeroPanel({
         <h1>Record your Spanish. Analyze it when you are ready.</h1>
         <p className="hero-description">
           A simple speaking workflow: make a recording, save it to your library,
-          and press Analyze to get structured Spanish feedback.
+          and press Analyze to upload it for transcription and structured
+          Spanish feedback.
         </p>
 
         <div className="hero-actions">
@@ -47,6 +48,11 @@ export function HeroPanel({
               : hasSelectedRecording
                 ? 'A recording is selected.'
                 : 'No recording selected yet.'}
+          </p>
+          <p>
+            {isAnalyzing
+              ? 'Uploading audio, transcribing it, and generating feedback.'
+              : 'Analysis runs on the server after you press Analyze.'}
           </p>
           {statusMessage ? <p className="hero-status__alert">{statusMessage}</p> : null}
         </div>
@@ -87,7 +93,7 @@ export function HeroPanel({
             <span className="chip-label">Transcript</span>
             <p>
               {sessionSnapshot.transcript ||
-                'When a transcript is available, it will appear here.'}
+                'After analysis, the server-generated transcript will appear here.'}
             </p>
           </div>
 

@@ -12,13 +12,13 @@ import {
   revokeRecordingLibraryUrls,
   saveRecordingLibrary,
 } from './lib/recordingLibrary.js'
-import { analyzeTranscript } from './services/coachApi.js'
+import { analyzeRecording } from './services/coachApi.js'
 
 const emptySnapshot = {
   title: 'No recording selected',
   transcript: '',
   insight:
-    'Record something in Spanish, then select it and press Analyze to generate feedback.',
+    'Record something in Spanish, then select it and press Analyze to generate feedback from the server.',
   waveform: [10, 16, 12, 18, 14, 20, 14, 11, 17, 13, 19, 12, 16, 10, 14, 11],
   stats: [],
 }
@@ -28,7 +28,7 @@ function createPendingSnapshot() {
     title: 'New recording',
     transcript: '',
     insight:
-      'This recording has been saved locally. Press Analyze when you want feedback.',
+      'This recording has been saved locally. Press Analyze to upload it for transcription and feedback.',
     waveform: [10, 16, 12, 18, 14, 20, 14, 11, 17, 13, 19, 12, 16, 10, 14, 11],
     stats: [],
   }
@@ -159,7 +159,7 @@ function App() {
     speechError ||
     analysisState.error ||
     (selectedRecording?.status === 'saved'
-      ? 'This recording is saved locally. Press Analyze when you want feedback.'
+      ? 'This recording is saved locally. Press Analyze to upload it for transcription and feedback.'
       : '')
 
   function openRecordingState(recording) {
@@ -195,15 +195,6 @@ function App() {
 
     const finalTranscript = selectedRecording.transcript.trim()
 
-    if (!finalTranscript) {
-      setAnalysisState((current) => ({
-        ...current,
-        error:
-          'This recording does not have a transcript yet, so feedback cannot be generated.',
-      }))
-      return
-    }
-
     setAnalysisState((current) => ({
       ...current,
       isLoading: true,
@@ -211,7 +202,10 @@ function App() {
     }))
 
     try {
-      const analysis = await analyzeTranscript(finalTranscript)
+      const analysis = await analyzeRecording({
+        audioBlob: selectedRecording.audioBlob,
+        transcript: finalTranscript,
+      })
 
       setRecordingLibrary((current) =>
         current.map((item) => {
@@ -305,7 +299,7 @@ function App() {
         <SectionTitle
           eyebrow="Recording library"
           title="Record first, analyze when you are ready"
-          description="Each recording is saved locally on this device. Select one from the library and press Analyze to generate Spanish feedback."
+          description="Each recording is saved locally on this device. Select one from the library and press Analyze to upload it for transcription and Spanish feedback."
           id="library-title"
         />
 
@@ -359,7 +353,7 @@ function App() {
           <SectionTitle
             eyebrow="Next step"
             title="Analyze a saved recording to get feedback"
-            description="Once a recording is selected, press Analyze to generate feedback. If no transcript is available yet, the app will tell you clearly."
+            description="Once a recording is selected, press Analyze to upload it to the server, transcribe it, and generate feedback."
             id="analyze-help-title"
           />
         </section>

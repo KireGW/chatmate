@@ -208,10 +208,7 @@ function buildMoments(text) {
       focus: 'Less literal and more natural wording',
       original: text,
       revision: lower.includes('ocupado con mi trabajo')
-        ? text.replace(
-            /ocupado con mi trabajo/gi,
-            'hasta arriba de trabajo',
-          )
+        ? text.replace(/ocupado con mi trabajo/gi, 'hasta arriba de trabajo')
         : text,
       why:
         'The sentence works, but it may still sound like a direct translation from English. Native-like speech often depends on ready-made chunks rather than word-by-word assembly.',
@@ -251,7 +248,7 @@ export function analyzeSpanishTranscript(transcript) {
       title: buildSessionTitle(cleanedTranscript),
       transcript: cleanedTranscript,
       insight:
-        'This coaching pass is generated locally from the captured transcript. It is designed to surface likely learning patterns now, and can later be replaced with a stronger AI-based transcript and analysis stack.',
+        'This coaching pass is generated locally from the captured transcript. It surfaces likely learning patterns now and can later be replaced with a stronger AI-based analysis stack.',
       waveform: [14, 24, 18, 34, 20, 38, 27, 16, 31, 22, 29, 18, 26, 16, 22, 14],
       stats: buildStats(cleanedTranscript),
     },

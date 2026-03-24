@@ -1,18 +1,30 @@
-export async function analyzeTranscript(transcript) {
-  const response = await fetch('/api/analyze', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      transcript,
-      language: 'es',
-    }),
-  })
+import { analyzeSpanishTranscript } from '../lib/analyzeSpanish.js'
 
-  if (!response.ok) {
-    throw new Error('The coaching service could not analyze this speaking turn.')
+export async function analyzeRecording({ audioBlob, transcript }) {
+  if (audioBlob) {
+    try {
+      const formData = new FormData()
+      formData.append('file', audioBlob, 'recording.webm')
+      formData.append('language', 'es')
+
+      const response = await fetch('/api/analyze-recording', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (response.ok) {
+        return response.json()
+      }
+    } catch {
+      // Fall back to local transcript-only analysis when the backend is unavailable.
+    }
   }
 
-  return response.json()
+  if (typeof transcript === 'string' && transcript.trim()) {
+    return analyzeSpanishTranscript(transcript)
+  }
+
+  throw new Error(
+    'Analysis requires the backend service with an OpenAI API key, or a transcript fallback.',
+  )
 }
