@@ -132,8 +132,8 @@ function App() {
     error: speechError,
     isFinalizingCapture,
     isRecording,
-    startSession,
-    stopSession,
+    startSession: startCaptureSession,
+    stopSession: stopCaptureSession,
     transcript,
   } = useSpeechCoach()
   const [analysisState, setAnalysisState] = useState({
@@ -149,6 +149,7 @@ function App() {
   const [isTranscriptOpen, setIsTranscriptOpen] = useState(false)
   const [transcriptModalRecording, setTranscriptModalRecording] = useState(null)
   const [analysisElapsedSeconds, setAnalysisElapsedSeconds] = useState(0)
+  const [isPreparingRecording, setIsPreparingRecording] = useState(false)
   const feedbackSectionRef = useRef(null)
   const recordingLibraryRef = useRef([])
 
@@ -232,6 +233,7 @@ function App() {
     })
 
     openRecordingState(pendingItem)
+    setIsPreparingRecording(false)
   }, [audioBlob, transcript])
 
   useEffect(() => {
@@ -243,12 +245,13 @@ function App() {
   const selectedRecording =
     recordingLibrary.find((item) => item.id === selectedRecordingId) ?? null
   const hasFeedback = Boolean(selectedRecording?.status === 'analyzed')
+  const canAnalyze = Boolean(selectedRecording?.audioBlob) && !isPreparingRecording
   const displayedDimensions = normalizeDisplayedDimensions(analysisState.dimensions)
   const analysisProgressPercent = estimateAnalysisProgress(analysisElapsedSeconds)
   const statusMessage =
     speechError ||
     analysisState.error ||
-    (isFinalizingCapture
+    (isPreparingRecording || isFinalizingCapture
       ? 'Finishing the recording and saving it on this device. Analyze will unlock in a moment.'
       : '') ||
     (selectedRecording?.status === 'saved'
@@ -303,6 +306,7 @@ function App() {
 
   function openRecordingState(recording) {
     setSelectedRecordingId(recording.id)
+    setIsPreparingRecording(false)
     setAnalysisState({
       isLoading: false,
       error: '',
@@ -376,7 +380,7 @@ function App() {
   async function analyzeSelectedRecording(recordingId) {
     const recordingToAnalyze = recordingId
       ? recordingLibrary.find((item) => item.id === recordingId) ?? null
-      : selectedRecording
+      : selectedRecording ?? recordingLibrary.find((item) => item.audioBlob) ?? null
 
     if (!recordingToAnalyze) {
       setAnalysisState((current) => ({
@@ -465,17 +469,28 @@ function App() {
     }
   }
 
+  async function handleStartSession() {
+    setIsPreparingRecording(false)
+    await startCaptureSession()
+  }
+
+  function handleStopSession() {
+    setIsPreparingRecording(true)
+    stopCaptureSession()
+  }
+
   return (
     <main className="app-shell">
       <HeroPanel
         audioUrl={audioUrl}
+        canAnalyze={canAnalyze}
         hasSelectedRecording={Boolean(selectedRecording)}
         isAnalyzing={analysisState.isLoading}
         isFinalizingCapture={isFinalizingCapture}
         isRecording={isRecording}
         onAnalyze={analyzeSelectedRecording}
-        onStartSession={startSession}
-        onStopSession={stopSession}
+        onStartSession={handleStartSession}
+        onStopSession={handleStopSession}
         selectedRecording={selectedRecording}
         sessionSnapshot={analysisState.snapshot}
         statusMessage={statusMessage}

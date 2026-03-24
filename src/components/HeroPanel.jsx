@@ -2,6 +2,7 @@ export function HeroPanel({
   analysisElapsedSeconds,
   analysisProgressPercent,
   audioUrl,
+  canAnalyze,
   hasSelectedRecording,
   isAnalyzing,
   isFinalizingCapture,
@@ -40,7 +41,7 @@ export function HeroPanel({
             className="secondary-action"
             onClick={onAnalyze}
             disabled={
-              isRecording || isAnalyzing || isFinalizingCapture || !hasSelectedRecording
+              isRecording || isAnalyzing || isFinalizingCapture || !canAnalyze
             }
           >
             {isFinalizingCapture ? 'Saving recording...' : isAnalyzing ? 'Analyzing...' : 'Analyze'}
@@ -112,8 +113,10 @@ export function HeroPanel({
               ? 'Recording in progress.'
               : isFinalizingCapture
                 ? 'Saving the recording.'
-              : hasSelectedRecording
+              : canAnalyze
                 ? 'Recording ready to analyze.'
+                : hasSelectedRecording
+                  ? 'Recording selected, but still preparing.'
                 : 'No recording yet.'}
           </p>
           <p>
