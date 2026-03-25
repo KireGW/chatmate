@@ -33,6 +33,10 @@ function createPendingSnapshot() {
   }
 }
 
+function getLanguageLabel(language) {
+  return language === 'fr' ? 'French' : 'Spanish'
+}
+
 function formatRecordingTitle(value) {
   return new Intl.DateTimeFormat('en-GB', {
     dateStyle: 'medium',
@@ -126,6 +130,7 @@ function normalizeDisplayedDimensions(dimensions) {
 }
 
 function App() {
+  const [activeLanguage, setActiveLanguage] = useState('es')
   const {
     audioBlob,
     audioUrl,
@@ -135,7 +140,7 @@ function App() {
     startSession: startCaptureSession,
     stopSession: stopCaptureSession,
     transcript,
-  } = useSpeechCoach()
+  } = useSpeechCoach(activeLanguage)
   const [analysisState, setAnalysisState] = useState({
     isLoading: false,
     error: '',
@@ -209,6 +214,7 @@ function App() {
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       title: formatRecordingTitle(new Date().toISOString()),
+      language: activeLanguage,
       summary: 'Summary available after analysis.',
       transcript: trimmedTranscript,
       audioBlob,
@@ -236,7 +242,7 @@ function App() {
     openRecordingState(pendingItem)
     setActiveView('coach')
     setIsPreparingRecording(false)
-  }, [audioBlob, transcript])
+  }, [activeLanguage, audioBlob, transcript])
 
   useEffect(() => {
     if (!isLibraryLoading) {
@@ -308,6 +314,7 @@ function App() {
 
   function openRecordingState(recording) {
     setSelectedRecordingId(recording.id)
+    setActiveLanguage(recording.language || 'es')
     setIsPreparingRecording(false)
     setAnalysisState({
       isLoading: false,
@@ -485,7 +492,7 @@ function App() {
     try {
       const analysis = await analyzeRecording({
         audioBlob: recordingToAnalyze.audioBlob,
-        transcript: finalTranscript,
+        language: recordingToAnalyze.language || activeLanguage,
       })
 
       setRecordingLibrary((current) =>
@@ -577,7 +584,9 @@ function App() {
         isAnalyzing={analysisState.isLoading}
         isFinalizingCapture={isFinalizingCapture}
         isRecording={isRecording}
+        language={activeLanguage}
         onAnalyze={analyzeSelectedRecording}
+        onLanguageChange={setActiveLanguage}
         onRenameRecording={renameRecording}
         onStartSession={handleStartSession}
         onStopSession={handleStopSession}
@@ -603,7 +612,7 @@ function App() {
           <SectionTitle
             eyebrow="Analysis"
             title="A diagnostic reading of this speaking turn"
-            description="The analysis below is designed to go beyond correction and explain the underlying patterns shaping grammatical accuracy, delivery, idiomacy, and vocabulary choice."
+            description={`The analysis below is designed to go beyond correction and explain the underlying patterns shaping ${getLanguageLabel(selectedRecording?.language || activeLanguage).toLowerCase()} grammar, delivery, idiomacy, and vocabulary choice.`}
             id="results-title"
           />
 

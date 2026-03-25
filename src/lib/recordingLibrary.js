@@ -62,6 +62,7 @@ function normalizeRecording(item) {
   return {
     id: item?.id || crypto.randomUUID(),
     createdAt: item?.createdAt || new Date().toISOString(),
+    language: item?.language || 'es',
     title: item?.title || 'Untitled recording',
     summary:
       typeof item?.summary === 'string' && item.summary.trim()
@@ -108,6 +109,7 @@ function stripClientFields(item) {
   return {
     id: item.id,
     createdAt: item.createdAt,
+    language: item.language || 'es',
     title: item.title,
     summary: item.summary,
     transcript: item.transcript,

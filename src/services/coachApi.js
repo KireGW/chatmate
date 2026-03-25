@@ -1,6 +1,6 @@
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') || ''
 
-export async function analyzeRecording({ audioBlob }) {
+export async function analyzeRecording({ audioBlob, language = 'es' }) {
   if (!audioBlob) {
     throw new Error('No recording is available to analyze.')
   }
@@ -12,7 +12,7 @@ export async function analyzeRecording({ audioBlob }) {
 
   const formData = new FormData()
   formData.append('file', audioBlob, 'recording.webm')
-  formData.append('language', 'es')
+  formData.append('language', language)
 
   let response
 

@@ -260,6 +260,10 @@ function summarizeModelPayload(modelFeedback) {
   }
 }
 
+function getCoachingLanguage(language) {
+  return language === 'fr' ? 'French' : 'Spanish'
+}
+
 function mergeModelFeedback(transcript, modelFeedback) {
   return {
     sessionSnapshot: {
@@ -297,8 +301,9 @@ function mergeModelFeedback(transcript, modelFeedback) {
   }
 }
 
-async function requestOllamaFeedback(transcript, deliveryProfile) {
+async function requestOllamaFeedback(transcript, deliveryProfile, language) {
   console.log('[analyze] requesting Ollama feedback')
+  const coachingLanguage = getCoachingLanguage(language)
   const deliveryContext = [
     deliveryProfile?.speakingRateWpm !== null
       ? `- Estimated speaking rate: ${deliveryProfile.speakingRateWpm} words per minute`
@@ -327,11 +332,11 @@ async function requestOllamaFeedback(transcript, deliveryProfile) {
         {
           role: 'system',
           content:
-            'You are a Spanish speaking coach. Return only JSON with keys sessionSnapshot, coachingDimensions, and coachingMoments. Every field must reflect the specific transcript and timing profile, not generic product copy. Be constructive, concise, and explain patterns behind the errors. Judge spoken language like an experienced teacher, not like a rigid grammar checker. Natural hesitation, brief repetition, self-repair, and ordinary thinking pauses are acceptable unless they materially reduce clarity or make the speaker difficult to follow. Focus criticism on the factors that most affect intelligibility, precision, and listener effort. Avoid placeholders and avoid mentioning apps, products, local analysis, future versions, or AI systems.',
+            `You are a ${coachingLanguage} speaking coach. Return only JSON with keys sessionSnapshot, coachingDimensions, and coachingMoments. Every field must reflect the specific transcript and timing profile, not generic product copy. Write all coaching commentary in English, but keep learner examples and revisions in ${coachingLanguage}. Be constructive, concise, and explain patterns behind the errors. Judge spoken language like an experienced teacher, not like a rigid grammar checker. Natural hesitation, brief repetition, self-repair, and ordinary thinking pauses are acceptable unless they materially reduce clarity or make the speaker difficult to follow. Focus criticism on the factors that most affect intelligibility, precision, and listener effort. Avoid placeholders and avoid mentioning apps, products, local analysis, future versions, or AI systems.`,
         },
         {
           role: 'user',
-          content: `Analyze this spoken Spanish transcript and return valid JSON.
+          content: `Analyze this spoken ${coachingLanguage} transcript and return valid JSON.
 
 Transcript:
 ${transcript}
@@ -428,7 +433,7 @@ app.post(
         return
       }
 
-      const modelFeedback = await requestOllamaFeedback(transcript, deliveryProfile)
+      const modelFeedback = await requestOllamaFeedback(transcript, deliveryProfile, language)
       const merged = mergeModelFeedback(transcript, modelFeedback)
       console.log('[analyze] model output merged', {
         dimensions: merged.coachingDimensions.length,

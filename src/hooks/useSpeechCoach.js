@@ -24,7 +24,19 @@ function getMicrophoneSupportError() {
   return ''
 }
 
-export function useSpeechCoach() {
+function getRecognitionLanguage(language) {
+  if (language === 'fr') {
+    return 'fr-FR'
+  }
+
+  return 'es-ES'
+}
+
+function getLanguageLabel(language) {
+  return language === 'fr' ? 'French' : 'Spanish'
+}
+
+export function useSpeechCoach(language = 'es') {
   const mediaRecorderRef = useRef(null)
   const recognitionRef = useRef(null)
   const chunksRef = useRef([])
@@ -130,7 +142,7 @@ export function useSpeechCoach() {
 
       if (Recognition) {
         const recognition = new Recognition()
-        recognition.lang = 'es-ES'
+        recognition.lang = getRecognitionLanguage(language)
         recognition.continuous = true
         recognition.interimResults = true
         recognition.maxAlternatives = 1
@@ -160,7 +172,7 @@ export function useSpeechCoach() {
           setError(
             event.error === 'not-allowed'
               ? 'Microphone permission was denied.'
-              : 'Speech recognition stopped unexpectedly. You can still play back the recording.',
+              : `${getLanguageLabel(language)} speech recognition stopped unexpectedly. You can still play back the recording.`,
           )
         }
 
@@ -172,7 +184,7 @@ export function useSpeechCoach() {
         recognitionRef.current = recognition
       } else {
         setError(
-          'Live Spanish transcription is not supported in this browser yet. Recording still works, and the backend can be connected to real transcription next.',
+          `Live ${getLanguageLabel(language)} transcription is not supported in this browser yet. Recording still works, and the backend can be connected to real transcription next.`,
         )
       }
 

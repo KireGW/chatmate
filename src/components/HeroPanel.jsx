@@ -7,7 +7,9 @@ export function HeroPanel({
   isAnalyzing,
   isFinalizingCapture,
   isRecording,
+  language,
   onAnalyze,
+  onLanguageChange,
   onRenameRecording,
   onStartSession,
   onStopSession,
@@ -28,6 +30,18 @@ export function HeroPanel({
         </p>
 
         <div className="hero-actions">
+          <label className="language-picker">
+            <span className="chip-label">Spoken language</span>
+            <select
+              value={language}
+              onChange={(event) => onLanguageChange(event.target.value)}
+              disabled={isRecording || isAnalyzing || isFinalizingCapture}
+            >
+              <option value="es">🇪🇸 Spanish</option>
+              <option value="fr">🇫🇷 French</option>
+            </select>
+          </label>
+
           <button
             type="button"
             className={`primary-action${isRecording ? ' primary-action--recording' : ''}`}
@@ -56,12 +70,12 @@ export function HeroPanel({
               : isRecording
                 ? 'Press Stop recording when this speaking turn is complete.'
                 : isFinalizingCapture
-                  ? 'The recording is being finalized and will appear in Current recording in a moment.'
-                : canAnalyze
+                  ? 'The recording is being finalized and will appear in Selected recording in a moment.'
+                  : canAnalyze
                     ? ''
                     : hasSelectedRecording
-                      ? 'Current recording is still being prepared before analysis becomes available.'
-                      : 'Record one speaking turn to create your first sample. Once it is saved, Current recording will appear with playback and analysis controls.'}
+                      ? 'The selected recording is still being prepared before analysis becomes available.'
+                      : 'Record one speaking turn to create your first sample. Once it is saved, Selected recording will appear with playback and analysis controls.'}
           </p>
           {statusMessage ? <p className="hero-status__alert">{statusMessage}</p> : null}
         </div>
